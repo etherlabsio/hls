@@ -8,7 +8,9 @@ import (
 	"path"
 	"strings"
 
-	"github.com/etherlabsio/m3u8"
+	"github.com/AlekSi/pointer"
+	"github.com/etherlabsio/go-m3u8/m3u8"
+
 )
 
 const BUFFERSIZE = 10240
@@ -32,27 +34,34 @@ func copyFile(src io.Reader, dst io.Writer) error {
 }
 
 func (m *MultirateTranscoder) generatePlaylistForSegment(DRMInitializationVector string) error {
-	plist, err := m3u8.NewMediaPlaylist(1, 1)
+	const (
+		playlistVersion        = 3
+		playlistTargetDuration = 6.0
+		encryptMethod          = "AES-128"
+		mediaType              = "VOD"
+	)
+
+	playlist := m3u8.NewPlaylist()
+	playlist.Version = pointer.ToInt(playlistVersion)
+	playlist.Target = playlistTargetDuration
+	playlist.Type = pointer.ToString(mediaType)
+	playlist.AppendItem(&m3u8.KeyItem{
+		Encryptable: &m3u8.Encryptable{
+			IV:     pointer.ToString(DRMInitializationVector),
+			URI:    pointer.ToString(m.files["keyFile"].Name()),
+			Method: encryptMethod,
+		},
+	})
+	playlist.AppendItem(&m3u8.SegmentItem{
+		Segment:  m.files["segment"].Name(),
+		Duration: playlistTargetDuration,
+	})
+	playlist.Live = false
+	_, err := m.files["playlist"].Write([]byte(playlist.String()))
 	if err != nil {
 		return err
 	}
-	const playlistVersion = 3
-	const playlistTargetDuration = 6.0
-	const encryptMethod = "AES-128"
-	plist.TargetDuration = playlistTargetDuration
-	plist.SetVersion(playlistVersion)
-	plist.MediaType = m3u8.VOD
-	plist.Key = &m3u8.Key{
-		IV:     DRMInitializationVector,
-		URI:    m.files["keyFile"].Name(),
-		Method: encryptMethod,
-	}
-	plist.AppendSegment(&m3u8.MediaSegment{URI: m.files["segment"].Name(), Duration: playlistTargetDuration})
-	plist.Closed = true
-	_, err = m.files["playlist"].Write(plist.Encode().Bytes())
-	if err != nil {
-		return err
-	}
+
 	return nil
 }
 

@@ -40,12 +40,14 @@ func (t Transcoder) withOptions(options ...[]string) Transcoder {
 	}
 	return t
 }
+
 func (t Transcoder) withArguments(args ...[]string) Transcoder {
 	if len(args) != 0 {
 		t.args = append(t.args, args...)
 	}
 	return t
 }
+
 func (t Transcoder) Build() ([]string, error) {
 	return ffmpeg.NewBuilder().
 		WithExecPath(t.execPath).

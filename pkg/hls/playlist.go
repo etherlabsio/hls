@@ -6,13 +6,14 @@ import (
 	"path"
 	"strings"
 
-	"github.com/etherlabsio/m3u8"
+	"github.com/AlekSi/pointer"
+	"github.com/etherlabsio/go-m3u8/m3u8"
 	"github.com/google/go-cloud/blob"
 	"github.com/pkg/errors"
 )
 
 type playlist struct {
-	p   m3u8.Playlist
+	p   *m3u8.Playlist
 	uri string
 }
 
@@ -32,42 +33,49 @@ func ListDir(ctx context.Context, bucket *blob.Bucket, prefix string) ([]string,
 	return filelist, nil
 }
 
-func (h *HLS) fetchPlaylist(ctx context.Context, bucket *blob.Bucket, playlistPath string) (m3u8.Playlist, m3u8.ListType, error) {
+func (h *HLS) fetchPlaylist(ctx context.Context, bucket *blob.Bucket, playlistPath string) (*m3u8.Playlist, error) {
 
 	r, err := bucket.NewReader(ctx, playlistPath, nil)
 	if err != nil {
-		return nil, 0, errors.Wrapf(err, "key %s", playlistPath)
+		return nil, errors.Wrapf(err, "key %s", playlistPath)
 	}
 	defer r.Close()
 
-	return m3u8.DecodeFrom(r, false)
+	return m3u8.Read(r)
 }
 
 func (h *HLS) fetchPlaylists(ctx context.Context, bucket *blob.Bucket, keyPlaylist string) (map[string]playlist, error) {
 	p := make(map[string]playlist)
 
-	m, listType, err := h.fetchPlaylist(ctx, bucket, keyPlaylist)
+	m, err := h.fetchPlaylist(ctx, bucket, keyPlaylist)
 	if err != nil {
-		return p, err
+		return p, errors.Wrap(err, "failed to fetch master playlist")
 	}
-	if listType != m3u8.MASTER {
-		return p, err
+	if !m.IsMaster() {
+		return p, errors.New("received media playlist instead of master playlist")
 	}
 
 	p["master"] = playlist{p: m, uri: keyPlaylist}
 
-	masterPlaylist := m.(*m3u8.MasterPlaylist)
-	if len(masterPlaylist.Variants) > 1 {
+	var uri string
+	plistCount := 0
+	for _, i := range m.Items {
+		if pi, ok := i.(*m3u8.PlaylistItem); ok {
+
+			plistCount++
+			uri = path.Dir(keyPlaylist) + "/" + pi.URI
+			uri = path.Clean(uri)
+		}
+	}
+
+	if plistCount > 1 {
 		return p, errors.New("master playlist contains more than 1 sub playlists")
 	}
-	if len(masterPlaylist.Variants) == 0 {
+	if plistCount == 0 {
 		return p, errors.New("master playlist doesnt contain sub playlist")
 	}
 
-	uri := path.Dir(keyPlaylist) + "/" + masterPlaylist.Variants[0].URI
-	uri = path.Clean(uri)
-
-	subPlaylist, listType, err := h.fetchPlaylist(ctx, bucket, uri)
+	subPlaylist, err := h.fetchPlaylist(ctx, bucket, uri)
 	p["sub"] = playlist{p: subPlaylist, uri: uri}
 
 	return p, err
@@ -75,7 +83,6 @@ func (h *HLS) fetchPlaylists(ctx context.Context, bucket *blob.Bucket, keyPlayli
 
 func (h *HLS) isValidMultiratePlaylist(ctx context.Context,
 	bucket *blob.Bucket,
-	p m3u8.Playlist,
 	playlistDirectory string,
 	q map[string]qualityParams) (bool, error) {
 
@@ -115,12 +122,12 @@ func (h *HLS) GenerateMultiratePlaylist(ctx context.Context, bucket *blob.Bucket
 	if err != nil {
 		return errors.Wrap(err, "failed to fetch the playlists")
 	}
-	ok, err := h.isValidMultiratePlaylist(ctx, bucket, p["sub"].p, path.Dir(playlistURI), q)
+	ok, err := h.isValidMultiratePlaylist(ctx, bucket, path.Dir(playlistURI), q)
 	if !ok {
 		return errors.Wrap(err, "failed to validate playlist for multirate.")
 	}
 
-	playlists, err := h.generatePlaylist(q, p["sub"].p.(*m3u8.MediaPlaylist))
+	playlists, err := h.generatePlaylist(q, p["sub"].p)
 	if err != nil {
 		return errors.Wrap(err, "failed to generate playlists")
 	}
@@ -128,52 +135,61 @@ func (h *HLS) GenerateMultiratePlaylist(ctx context.Context, bucket *blob.Bucket
 	return errors.WithMessage(h.uploadMultiratePlaylists(ctx, q, playlists, bucket, playlistURI), "error while trying to upload multirate playlists")
 }
 
-func (h *HLS) generatePlaylist(q map[string]qualityParams, subPlaylist *m3u8.MediaPlaylist) (map[string]m3u8.Playlist, error) {
+func (h *HLS) generatePlaylist(q map[string]qualityParams, subPlaylist *m3u8.Playlist) (map[string]*m3u8.Playlist, error) {
 
-	m := m3u8.NewMasterPlaylist()
-
-	numSegments := subPlaylist.Count()
+	m := m3u8.NewPlaylist()
+	m.Master = pointer.ToBool(true)
 
 	type plistInfo struct {
-		plist  *m3u8.MediaPlaylist
+		plist  *m3u8.Playlist
 		params qualityParams
 	}
 
 	plists := make(map[string]plistInfo)
 
-	for quality, qparams := range q {
-		params := m3u8.VariantParams{
-			Bandwidth:  qparams.bandwidth,
-			Resolution: qparams.res(),
+	var keyinfo *m3u8.KeyItem
+	for _, i := range subPlaylist.Items {
+		if ki, ok := i.(*m3u8.KeyItem); ok {
+			keyinfo = ki
+			break
 		}
-		plist, err := m3u8.NewMediaPlaylist(numSegments, 2*numSegments)
-		if err != nil {
-			return nil, err
-		}
-		plists[quality] = plistInfo{plist: plist, params: qparams}
-		plist.TargetDuration = subPlaylist.TargetDuration
-		plist.SetVersion(subPlaylist.Version())
-		plist.MediaType = subPlaylist.MediaType
-
-		m.Append(qparams.playlistURI(), plist, params)
 	}
-	for _, segment := range subPlaylist.Segments {
+
+	for quality, qparams := range q {
+		plist := m3u8.NewPlaylist()
+		plist.Target = subPlaylist.Target
+		plist.Version = subPlaylist.Version
+		plist.Type = subPlaylist.Type
+		if keyinfo != nil {
+			plist.AppendItem(keyinfo)
+		}
+
+		m.AppendItem(&m3u8.PlaylistItem{
+			Bandwidth: int(qparams.bandwidth),
+			Resolution: &m3u8.Resolution{
+				Width:  qparams.width,
+				Height: qparams.height,
+			},
+			URI: qparams.playlistURI(),
+		})
+
+		plists[quality] = plistInfo{plist: plist, params: qparams}
+
+	}
+	for _, segment := range subPlaylist.Segments() {
 		if segment != nil {
 			for quality := range plists {
 				seg := *segment
-				seg.URI = strings.Replace(seg.URI, "out", plists[quality].params.segmentPrefix(), 1)
-				err := plists[quality].plist.AppendSegment(&seg)
-				if err != nil {
-					return nil, err
-				}
+				seg.Segment = strings.Replace(seg.Segment, "out", plists[quality].params.segmentPrefix(), 1)
+				plists[quality].plist.AppendItem(&seg)
 			}
 		}
 	}
 	for _, p := range plists {
-		p.plist.Close()
+		p.plist.Live = false
 	}
 
-	result := make(map[string]m3u8.Playlist)
+	result := make(map[string]*m3u8.Playlist)
 	result["master"] = m
 
 	for quality, p := range plists {
@@ -184,7 +200,7 @@ func (h *HLS) generatePlaylist(q map[string]qualityParams, subPlaylist *m3u8.Med
 }
 
 func (h *HLS) uploadMultiratePlaylists(ctx context.Context, q map[string]qualityParams,
-	playlists map[string]m3u8.Playlist,
+	playlists map[string]*m3u8.Playlist,
 	bucket *blob.Bucket, playlistURI string) error {
 	for k, v := range q {
 		p, ok := playlists[k]
@@ -197,7 +213,7 @@ func (h *HLS) uploadMultiratePlaylists(ctx context.Context, q map[string]quality
 			return errors.Wrapf(err, "failed to open the file %s for writing", uri)
 		}
 		defer wr.Close()
-		_, err = wr.Write(p.Encode().Bytes())
+		_, err = wr.Write([]byte(p.String()))
 		if err != nil {
 			return errors.Wrapf(err, "failed to write to the file %s", uri)
 		}
@@ -211,7 +227,7 @@ func (h *HLS) uploadMultiratePlaylists(ctx context.Context, q map[string]quality
 		return errors.Wrapf(err, "failed to open the file %s for writing", playlistURI)
 	}
 	defer wr.Close()
-	_, err = wr.Write(p.Encode().Bytes())
+	_, err = wr.Write([]byte(p.String()))
 	if err != nil {
 		return errors.Wrapf(err, "failed to write to the file %s", playlistURI)
 	}
