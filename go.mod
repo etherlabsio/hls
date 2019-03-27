@@ -14,5 +14,4 @@ require (
 	github.com/google/go-cloud v0.7.0
 	github.com/pkg/errors v0.8.1
 	github.com/smartystreets/gunit v0.0.0-20180314194857-6f0d6275bdcd // indirect
-	gitlab.com/etherlabs/ether v0.8.9
 )
