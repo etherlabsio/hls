@@ -10,12 +10,14 @@ import (
 )
 
 type Quality struct {
-	params          qualityParams
+	params          QualityParams
 	path            string
 	keyInfoFilePath string
 	segmentFile     *os.File
 }
-type qualityParams struct {
+
+//QualityParams defines parameters for particular quality
+type QualityParams struct {
 	resolution string
 	width      int
 	height     int
@@ -26,8 +28,8 @@ type qualityParams struct {
 	copyVideo  bool
 }
 
-var qualityConsts = map[string]qualityParams{
-	"720p": qualityParams{
+var qualityConstraints = map[string]QualityParams{
+	"720p": QualityParams{
 		resolution: "720p",
 		copyVideo:  true,
 		width:      1280,
@@ -37,7 +39,7 @@ var qualityConsts = map[string]qualityParams{
 		bufsize:    4200,
 		bandwidth:  2800000,
 	},
-	"480p": qualityParams{
+	"480p": QualityParams{
 		resolution: "480p",
 		copyVideo:  false,
 		width:      842,
@@ -47,7 +49,7 @@ var qualityConsts = map[string]qualityParams{
 		bufsize:    2100,
 		bandwidth:  1400000,
 	},
-	"360p": qualityParams{
+	"360p": QualityParams{
 		resolution: "360p",
 		copyVideo:  false,
 		width:      640,
@@ -57,7 +59,7 @@ var qualityConsts = map[string]qualityParams{
 		bufsize:    1200,
 		bandwidth:  800000,
 	},
-	"144p": qualityParams{
+	"144p": QualityParams{
 		resolution: "144p",
 		copyVideo:  false,
 		width:      176,
@@ -69,15 +71,15 @@ var qualityConsts = map[string]qualityParams{
 	},
 }
 
-func (q qualityParams) res() string {
+func (q QualityParams) res() string {
 	return fmt.Sprintf("%dx%d", q.width, q.height)
 }
 
-func (q qualityParams) playlistURI() string {
+func (q QualityParams) playlistURI() string {
 	return "./" + q.resolution + "/" + q.resolution + ".m3u8"
 }
 
-func (q qualityParams) segmentPrefix() string {
+func (q QualityParams) segmentPrefix() string {
 	return q.resolution + "_"
 }
 
@@ -90,7 +92,7 @@ func hlsOut(dir, keyInfoFile string) [][]string {
 }
 
 func NewQuality(resolution string, keyInfoFile *os.File) (Quality, error) {
-	_, ok := qualityConsts[resolution]
+	_, ok := qualityConstraints[resolution]
 	if !ok {
 		return Quality{}, errors.New("quality for resolution" + resolution + " is not defined")
 	}
@@ -99,7 +101,7 @@ func NewQuality(resolution string, keyInfoFile *os.File) (Quality, error) {
 		return Quality{}, err
 	}
 	q := Quality{
-		params:          qualityConsts[resolution],
+		params:          qualityConstraints[resolution],
 		path:            path,
 		keyInfoFilePath: keyInfoFile.Name(),
 	}

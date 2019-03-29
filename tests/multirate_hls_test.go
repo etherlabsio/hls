@@ -1,4 +1,4 @@
-package hls_test
+package tests
 
 import (
 	"context"

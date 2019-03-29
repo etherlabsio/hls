@@ -84,7 +84,7 @@ func (h *HLS) fetchPlaylists(ctx context.Context, bucket *blob.Bucket, keyPlayli
 func (h *HLS) isValidMultiratePlaylist(ctx context.Context,
 	bucket *blob.Bucket,
 	playlistDirectory string,
-	q map[string]qualityParams) (bool, error) {
+	q map[string]QualityParams) (bool, error) {
 
 	filelist, err := ListDir(ctx, bucket, playlistDirectory)
 	if err != nil {
@@ -113,9 +113,9 @@ func (h *HLS) isValidMultiratePlaylist(ctx context.Context,
 
 func (h *HLS) GenerateMultiratePlaylist(ctx context.Context, bucket *blob.Bucket, playlistURI string) error {
 
-	q := make(map[string]qualityParams)
+	q := make(map[string]QualityParams)
 	for _, quality := range h.multriateQuality {
-		q[quality] = qualityConsts[quality]
+		q[quality] = qualityConstraints[quality]
 	}
 
 	p, err := h.fetchPlaylists(ctx, bucket, playlistURI)
@@ -135,14 +135,14 @@ func (h *HLS) GenerateMultiratePlaylist(ctx context.Context, bucket *blob.Bucket
 	return errors.WithMessage(h.uploadMultiratePlaylists(ctx, q, playlists, bucket, playlistURI), "error while trying to upload multirate playlists")
 }
 
-func (h *HLS) generatePlaylist(q map[string]qualityParams, subPlaylist *m3u8.Playlist) (map[string]*m3u8.Playlist, error) {
+func (h *HLS) generatePlaylist(q map[string]QualityParams, subPlaylist *m3u8.Playlist) (map[string]*m3u8.Playlist, error) {
 
 	m := m3u8.NewPlaylist()
 	m.Master = pointer.ToBool(true)
 
 	type plistInfo struct {
 		plist  *m3u8.Playlist
-		params qualityParams
+		params QualityParams
 	}
 
 	plists := make(map[string]plistInfo)
@@ -199,7 +199,7 @@ func (h *HLS) generatePlaylist(q map[string]qualityParams, subPlaylist *m3u8.Pla
 	return result, nil
 }
 
-func (h *HLS) uploadMultiratePlaylists(ctx context.Context, q map[string]qualityParams,
+func (h *HLS) uploadMultiratePlaylists(ctx context.Context, q map[string]QualityParams,
 	playlists map[string]*m3u8.Playlist,
 	bucket *blob.Bucket, playlistURI string) error {
 	for k, v := range q {
