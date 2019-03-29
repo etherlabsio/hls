@@ -4,7 +4,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/etherlabsio/avcapture/pkg/ffmpeg"
+	"github.com/etherlabsio/hls/pkg/ffmpeg"
 )
 
 type Transcoder struct {

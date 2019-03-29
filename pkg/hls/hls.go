@@ -5,7 +5,7 @@ import (
 
 	"github.com/google/go-cloud/blob"
 
-	"github.com/etherlabsio/avcapture/pkg/commander"
+	"github.com/etherlabsio/pkg/commander"
 )
 
 type TranscodeEvent struct {

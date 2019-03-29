@@ -1,4 +1,3 @@
-# WIP : hls
-Go utility functions for generating multi-bitrate HLS playlists
+# hls
 
-This repository is still work in progress, and hence does not contain any source code.
+Go utility functions for generating multi-bitrate HLS playlists.
