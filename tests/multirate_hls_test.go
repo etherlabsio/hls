@@ -2,6 +2,7 @@ package tests
 
 import (
 	"context"
+	"os"
 	"testing"
 
 	"github.com/google/go-cloud/blob/s3blob"
@@ -21,6 +22,7 @@ func makeAWSSession(region string) *session.Session {
 }
 
 func Test_multirateHLSUpdatePlaylist(t *testing.T) {
+	region := os.Getenv("AWS_REGION")
 	tests := []struct {
 		name        string
 		Region      string
@@ -31,13 +33,13 @@ func Test_multirateHLSUpdatePlaylist(t *testing.T) {
 
 		{
 			"Basic functionality",
-			"us-east-1",
-			"io.etherlabs.test",
+			region,
+			os.Getenv("AWS_BUCKET"),
 			"recordings/hls-test/master1.m3u8",
 			false,
 		},
 	}
-	AWSSession := makeAWSSession("us-east-1")
+	AWSSession := makeAWSSession(region)
 	ctx := context.Background()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

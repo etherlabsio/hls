@@ -4,8 +4,6 @@ import (
 	"os"
 
 	"github.com/google/go-cloud/blob"
-
-	"github.com/etherlabsio/pkg/commander"
 )
 
 type TranscodeEvent struct {
@@ -17,11 +15,12 @@ type TranscodeEvent struct {
 }
 
 type MultirateTranscoder struct {
-	bucket    *blob.Bucket
-	event     TranscodeEvent
-	ffmpegCmd string
-	files     map[string]*os.File
-	key       string
+	bucket     *blob.Bucket
+	event      TranscodeEvent
+	ffmpegCmd  string
+	files      map[string]*os.File
+	key        string
+	transcoder Transcoder
 }
 
 func NewMultirateTranscoder(bucket *blob.Bucket, event TranscodeEvent, ffmpegCmd string) (*MultirateTranscoder, error) {
@@ -42,45 +41,34 @@ func NewMultirateTranscoder(bucket *blob.Bucket, event TranscodeEvent, ffmpegCmd
 	return &m, nil
 }
 
-func (m *MultirateTranscoder) Transcode() error {
+func (m *MultirateTranscoder) GenerateCommand() ([]string, error) {
 
 	transcoder, err := NewTranscoder(m.files["playlist"])
 	if err != nil {
-		return err
+		return nil, err
 	}
-	defer transcoder.Close()
+	m.transcoder = transcoder
 
 	for _, quality := range m.event.Qualities {
 		q, err := NewQuality(quality, m.files["keyInfoFile"])
 		if err != nil {
-			return err
+			return nil, err
 		}
-		transcoder = transcoder.WithQuality(q)
+		m.transcoder = m.transcoder.WithQuality(q)
 	}
 
-	transcoder = transcoder.WithExecPath(m.ffmpegCmd)
+	m.transcoder = m.transcoder.WithExecPath(m.ffmpegCmd)
 
-	args, err := transcoder.Build()
+	return m.transcoder.Build()
+}
+
+func (m *MultirateTranscoder) Upload() error {
+
+	segmentFiles, err := m.transcoder.Segments()
 	if err != nil {
 		return err
 	}
-
-	err = commander.Exec(args...)
-	if err != nil {
-		return err
-	}
-
-	segmentFiles, err := transcoder.Segments()
-	if err != nil {
-		return err
-	}
-
-	err = m.Upload(segmentFiles)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return m.upload(segmentFiles)
 }
 
 type HLS struct {
