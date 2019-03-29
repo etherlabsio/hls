@@ -10,7 +10,6 @@ import (
 
 	"github.com/AlekSi/pointer"
 	"github.com/etherlabsio/go-m3u8/m3u8"
-
 )
 
 const BUFFERSIZE = 10240
@@ -113,7 +112,7 @@ func (m *MultirateTranscoder) createTempFiles(key string, DRMKey []byte, DRMInit
 	return err
 }
 
-func (m *MultirateTranscoder) Upload(segments map[string]*os.File) error {
+func (m *MultirateTranscoder) upload(segments map[string]*os.File) error {
 
 	p := path.Dir(m.key)
 	fn := path.Base(m.key)
@@ -137,6 +136,8 @@ func (m *MultirateTranscoder) Upload(segments map[string]*os.File) error {
 }
 
 func (m *MultirateTranscoder) Close() {
+
+	m.transcoder.Close()
 
 	for k, f := range m.files {
 		n := f.Name()
