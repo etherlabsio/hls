@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/etherlabsio/hls/pkg/ffmpeg"
+	"github.com/pkg/errors"
 )
 
 type Transcoder struct {
@@ -12,7 +13,7 @@ type Transcoder struct {
 	options  [][]string
 	args     [][]string
 	q        map[string]Quality
-	images   Image
+	images   *Image
 }
 
 func NewTranscoder(playlist *os.File) (Transcoder, error) {
@@ -35,7 +36,7 @@ func (t Transcoder) WithQuality(q Quality) Transcoder {
 	return t
 }
 
-func (t Transcoder) WithImage(i Image) Transcoder {
+func (t Transcoder) WithImage(i *Image) Transcoder {
 	t.images = i
 	t = t.withArguments(i.settings()...)
 	return t
@@ -77,8 +78,11 @@ func (t Transcoder) Segments() (map[string]*os.File, error) {
 	return files, nil
 }
 
-func (t Transcoder) Images() ([]string, error) {
-	return t.images.frames()
+func (t Transcoder) ImagesPath() (string, error) {
+	if t.images != nil {
+		return t.images.imagesPath(), nil
+	}
+	return "", errors.New("this instance doesn't support extraction of images")
 }
 
 func (t Transcoder) Close() error {

@@ -72,6 +72,9 @@ func (i Image) imagesList() ([]string, error) {
 	sort.Strings(list)
 	return list, nil
 }
+func (i Image) imagesPath() (string) {
+	return i.path
+}
 
 func (i Image) frames() ([]string, error) {
 	var files []string

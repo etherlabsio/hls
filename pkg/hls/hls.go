@@ -63,7 +63,7 @@ func (m *MultirateTranscoder) GenerateCommand() ([]string, error) {
 		if err != nil {
 			return nil, err
 		}
-		m.transcoder = m.transcoder.WithImage(i)
+		m.transcoder = m.transcoder.WithImage(&i)
 	}
 
 	m.transcoder = m.transcoder.WithExecPath(m.ffmpegCmd)
@@ -80,11 +80,11 @@ func (m *MultirateTranscoder) Upload() error {
 	return m.upload(segmentFiles)
 }
 
-func (m *MultirateTranscoder) Images() ([]string, error) {
+func (m *MultirateTranscoder) ImagesPath() (string, error) {
 	if m.event.ExtractImages {
-		return m.transcoder.Images()
+		return m.transcoder.ImagesPath()
 	}
-	return nil, errors.New("extract images is disabled.")
+	return "", errors.New("extract images is disabled.")
 }
 
 type HLS struct {
