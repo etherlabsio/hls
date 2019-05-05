@@ -52,7 +52,7 @@ func (i Image) clear() error {
 }
 
 func (i Image) settings() [][]string {
-	return [][]string{{"-vf", "fps=1/3", i.path + "/frame%04d.png"}}
+	return [][]string{{"-vf", "fps=3", i.path + "/frame%04d.png"}}
 }
 
 func (i Image) imagesList() ([]string, error) {
