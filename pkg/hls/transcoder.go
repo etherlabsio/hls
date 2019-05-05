@@ -12,6 +12,7 @@ type Transcoder struct {
 	options  [][]string
 	args     [][]string
 	q        map[string]Quality
+	images   Image
 }
 
 func NewTranscoder(playlist *os.File) (Transcoder, error) {
@@ -31,6 +32,12 @@ func (t Transcoder) WithExecPath(execPath string) Transcoder {
 func (t Transcoder) WithQuality(q Quality) Transcoder {
 	t.q[q.resolution()] = q
 	t = t.withArguments(q.settings()...)
+	return t
+}
+
+func (t Transcoder) WithImage(i Image) Transcoder {
+	t.images = i
+	t = t.withArguments(i.settings()...)
 	return t
 }
 
@@ -70,6 +77,10 @@ func (t Transcoder) Segments() (map[string]*os.File, error) {
 	return files, nil
 }
 
+func (t Transcoder) Images() ([]string, error) {
+	return t.images.frames()
+}
+
 func (t Transcoder) Close() error {
 	for _, v := range t.q {
 		err := v.clear()
@@ -77,5 +88,5 @@ func (t Transcoder) Close() error {
 			return err
 		}
 	}
-	return nil
+	return t.images.clear()
 }

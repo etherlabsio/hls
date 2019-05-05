@@ -12,6 +12,7 @@ type TranscodeEvent struct {
 	DRMKey                  []byte   `json:"drmKey"`
 	DRMInitializationVector string   `json:"drmInitializationVector"`
 	Qualities               []string `json:"qualities"`
+	ExtractImages           bool     `json:"extractImages"`
 }
 
 type MultirateTranscoder struct {
@@ -55,6 +56,13 @@ func (m *MultirateTranscoder) GenerateCommand() ([]string, error) {
 			return nil, err
 		}
 		m.transcoder = m.transcoder.WithQuality(q)
+	}
+	if m.event.ExtractImages {
+		i, err := NewImage("screenshare")
+		if err != nil {
+			return nil, err
+		}
+		m.transcoder = m.transcoder.WithImage(i)
 	}
 
 	m.transcoder = m.transcoder.WithExecPath(m.ffmpegCmd)
