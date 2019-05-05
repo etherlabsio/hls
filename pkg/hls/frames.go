@@ -23,7 +23,7 @@ type FrameParams struct {
 	height     int
 }
 
-var qualityConstraints = map[string]FrameParams{
+var imageConstraints = map[string]FrameParams{
 	"screenshare": FrameParams{
 		resolution: "screenshare",
 		width:      1280,
@@ -32,7 +32,7 @@ var qualityConstraints = map[string]FrameParams{
 }
 
 func NewImage(resolution string) (Image, error) {
-	_, ok := qualityConstraints[resolution]
+	_, ok := imageConstraints[resolution]
 	if !ok {
 		return Image{}, errors.New("frame configuration for resolution" + resolution + " is not defined")
 	}
@@ -41,7 +41,7 @@ func NewImage(resolution string) (Image, error) {
 		return Image{}, err
 	}
 	q := Image{
-		params: qualityConstraints[resolution],
+		params: imageConstraints[resolution],
 		path:   path,
 	}
 	return q, nil
