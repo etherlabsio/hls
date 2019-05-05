@@ -4,6 +4,7 @@ import (
 	"os"
 
 	"github.com/google/go-cloud/blob"
+	"github.com/pkg/errors"
 )
 
 type TranscodeEvent struct {
@@ -77,6 +78,13 @@ func (m *MultirateTranscoder) Upload() error {
 		return err
 	}
 	return m.upload(segmentFiles)
+}
+
+func (m *MultirateTranscoder) Images() ([]string, error) {
+	if m.event.ExtractImages {
+		return m.transcoder.Images()
+	}
+	return nil, errors.New("extract images is disabled.")
 }
 
 type HLS struct {
