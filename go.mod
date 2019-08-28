@@ -4,7 +4,7 @@ go 1.12
 
 require (
 	github.com/AlekSi/pointer v1.0.0
-	github.com/aws/aws-sdk-go v1.22.2
+	github.com/aws/aws-sdk-go v1.23.11
 	github.com/etherlabsio/go-m3u8 v0.1.2
 	github.com/etherlabsio/pkg v0.0.0-20190329073959-44b9d954a1e7
 	github.com/golang/protobuf v1.3.1 // indirect
