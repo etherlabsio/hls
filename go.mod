@@ -1,6 +1,6 @@
 module github.com/etherlabsio/hls
 
-go 1.12
+go 1.13
 
 require (
 	github.com/AlekSi/pointer v1.0.0
