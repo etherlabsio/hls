@@ -3,7 +3,7 @@ package hls
 import (
 	"os"
 
-	"github.com/google/go-cloud/blob"
+	"gocloud.dev/blob"
 )
 
 type TranscodeEvent struct {
